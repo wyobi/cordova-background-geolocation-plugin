@@ -200,25 +200,18 @@
             <string name="plugin_bgloc_content_authority">$CONTENT_AUTHORITY</string>
         </config-file>
 
-        <edit-config file="res/xml/authenticator.xml" target="/*" mode="overwrite">
-          <account-authenticator
-              xmlns:android="http://schemas.android.com/apk/res/android"
-              android:accountType="@string/plugin_bgloc_account_type"
-              android:icon="$ICON"
-              android:smallIcon="$SMALL_ICON"
-              android:label="$ACCOUNT_LABEL"/>
-        </edit-config>
-
-        <edit-config file="res/xml/syncadapter.xml" target="/*" mode="overwrite">
-          <sync-adapter
-              xmlns:android="http://schemas.android.com/apk/res/android"
-              android:contentAuthority="@string/plugin_bgloc_content_authority"
-              android:accountType="@string/plugin_bgloc_account_type"
-              android:userVisible="false"
-              android:supportsUploading="true"
-              android:allowParallelSyncs="false"
-              android:isAlwaysSyncable="true"/>
-        </edit-config>
+        <!--
+          authenticator.xml / syncadapter.xml are installed verbatim by the
+          resource-file entries above, already carrying accountType
+          (@string/plugin_bgloc_account_type, set from $ACCOUNT_TYPE via
+          strings.xml), icon/smallIcon (@mipmap/ic_launcher) and label
+          (@string/app_name). The previous <edit-config target="/*"
+          mode="overwrite"> blocks re-applied that same content only to
+          substitute $ICON/$SMALL_ICON/$ACCOUNT_LABEL — but a root "/*"
+          overwrite crashes the conflict detector in current cordova-common
+          (registerConflict: cannot read 'id' of undefined) and blocks install.
+          Dropped: identical platform output at default variable values.
+        -->
     </platform>
 
     <platform name="ios">
