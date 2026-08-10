@@ -54,8 +54,18 @@ public class ContentProviderLocationDAO implements LocationDAO {
                     whereArgs,
                     LocationEntry.COLUMN_NAME_TIME + " ASC"
             );
-            while (cursor.moveToNext()) {
-                locations.add(BackgroundLocation.fromCursor(cursor));
+            // ContentResolver.query() returns null when the provider cannot be reached —
+            // not yet published, killed, or the client lost access. That is a normal
+            // transient on a cold start, not an error, and it means "no rows" here.
+            //
+            // Without this guard moveToNext() throws NullPointerException on a background
+            // pool thread, where nothing catches it and the whole app process dies. The
+            // finally block below already null-checks the same cursor, so the possibility
+            // was known; only the read path missed it.
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    locations.add(BackgroundLocation.fromCursor(cursor));
+                }
             }
         } finally {
             if (cursor != null) {
@@ -100,10 +110,12 @@ public class ContentProviderLocationDAO implements LocationDAO {
                     null,
                     null
             );
-            while (cursor.moveToNext()) {
-                location = BackgroundLocation.fromCursor(cursor);
-                if (!cursor.isLast()) {
-                    throw new RuntimeException("Location " + id + " is not unique");
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    location = BackgroundLocation.fromCursor(cursor);
+                    if (!cursor.isLast()) {
+                        throw new RuntimeException("Location " + id + " is not unique");
+                    }
                 }
             }
         } finally {
@@ -117,17 +129,24 @@ public class ContentProviderLocationDAO implements LocationDAO {
     }
 
     public int getLocationsCount() {
-        Cursor cursor = mResolver.query(
-                mContentUri,
-                null,
-                null,
-                null,
-                ""
-        );
+        Cursor cursor = null;
+        try {
+            cursor = mResolver.query(
+                    mContentUri,
+                    null,
+                    null,
+                    null,
+                    ""
+            );
 
-        int count = cursor.getCount();
-        cursor.close();
-        return count;
+            // Unreachable provider means no rows, not a crash. This one also had no
+            // try/finally, so the cursor leaked whenever getCount() threw.
+            return cursor == null ? 0 : cursor.getCount();
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
     }
 
     @Override
@@ -152,10 +171,12 @@ public class ContentProviderLocationDAO implements LocationDAO {
                     null
                     );
 
-            while (cursor.moveToNext()) {
-                location = BackgroundLocation.fromCursor(cursor);
-                if (!cursor.isLast()) {
-                    throw new RuntimeException("Expected single location");
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    location = BackgroundLocation.fromCursor(cursor);
+                    if (!cursor.isLast()) {
+                        throw new RuntimeException("Expected single location");
+                    }
                 }
             }
         } finally {
@@ -190,10 +211,12 @@ public class ContentProviderLocationDAO implements LocationDAO {
                     null
             );
 
-            while (cursor.moveToNext()) {
-                location = BackgroundLocation.fromCursor(cursor);
-                if (!cursor.isLast()) {
-                    throw new RuntimeException("Expected single location");
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    location = BackgroundLocation.fromCursor(cursor);
+                    if (!cursor.isLast()) {
+                        throw new RuntimeException("Expected single location");
+                    }
                 }
             }
         } finally {
@@ -210,16 +233,23 @@ public class ContentProviderLocationDAO implements LocationDAO {
         String whereClause = SQLiteLocationContract.LocationEntry.COLUMN_NAME_STATUS + " = ?";
         String[] whereArgs = { String.valueOf(BackgroundLocation.POST_PENDING) };
 
-        Cursor cursor = mResolver.query(
-                mContentUri,
-                null,
-                whereClause,
-                whereArgs,
-                null);
+        Cursor cursor = null;
+        try {
+            cursor = mResolver.query(
+                    mContentUri,
+                    null,
+                    whereClause,
+                    whereArgs,
+                    null);
 
-        int count = cursor.getCount();
-        cursor.close();
-        return count;
+            // Unreachable provider means no rows, not a crash. Also had no try/finally,
+            // so the cursor leaked whenever getCount() threw.
+            return cursor == null ? 0 : cursor.getCount();
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
     }
 
     @Override
@@ -234,16 +264,23 @@ public class ContentProviderLocationDAO implements LocationDAO {
                 String.valueOf(millisSinceLastBatch)
         };
 
-        Cursor cursor = mResolver.query(
-                mContentUri,
-                null,
-                whereClause,
-                whereArgs,
-                null);
+        Cursor cursor = null;
+        try {
+            cursor = mResolver.query(
+                    mContentUri,
+                    null,
+                    whereClause,
+                    whereArgs,
+                    null);
 
-        int count = cursor.getCount();
-        cursor.close();
-        return count;
+            // Unreachable provider means no rows, not a crash. Also had no try/finally,
+            // so the cursor leaked whenever getCount() threw.
+            return cursor == null ? 0 : cursor.getCount();
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
     }
 
     public Uri getOldestLocationUri() {
